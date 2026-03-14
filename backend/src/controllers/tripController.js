@@ -11,7 +11,7 @@ exports.getAll = (req, res) => {
         [limit, offset],
         (err, rows) => {
             if (err) {
-                logger.error("getAll failed", err);
+                logger.error("getAll", err);
                 return res.status(500).json({ success: false, error: "Database error" });
             }
             res.json({ success: true, data: rows || [] });
@@ -29,7 +29,7 @@ exports.getById = (req, res) => {
 
     db.get("SELECT * FROM trips WHERE id = ?", [id], (err, row) => {
         if (err) {
-            logger.error("getById failed", err);
+            logger.error("getById", err);
             return res.status(500).json({ success: false, error: "Database error" });
         }
         if (!row) {
@@ -49,10 +49,10 @@ exports.create = (req, res) => {
         [passenger.trim(), passport.trim(), driver.trim(), destination.trim(), type || "Local", parseFloat(fare), date],
         function (err) {
             if (err) {
-                logger.error("create failed", err);
+                logger.error("create", err);
                 return res.status(500).json({ success: false, error: "Failed to create trip" });
             }
-            logger.info(`Trip created: ${passenger}`);
+            logger.info(`Trip created: ${passenger} → ${destination}`);
             res.status(201).json({
                 success: true,
                 data: {
@@ -84,7 +84,7 @@ exports.update = (req, res) => {
         [passenger.trim(), passport.trim(), driver.trim(), destination.trim(), type, parseFloat(fare), id],
         function (err) {
             if (err) {
-                logger.error("update failed", err);
+                logger.error("update", err);
                 return res.status(500).json({ success: false, error: "Failed to update trip" });
             }
             if (this.changes === 0) {
@@ -106,7 +106,7 @@ exports.delete = (req, res) => {
 
     db.run("DELETE FROM trips WHERE id = ?", [id], function (err) {
         if (err) {
-            logger.error("delete failed", err);
+            logger.error("delete", err);
             return res.status(500).json({ success: false, error: "Failed to delete trip" });
         }
         if (this.changes === 0) {
@@ -134,7 +134,7 @@ exports.search = (req, res) => {
         [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
         (err, rows) => {
             if (err) {
-                logger.error("search failed", err);
+                logger.error("search", err);
                 return res.status(500).json({ success: false, error: "Database error" });
             }
             res.json({ success: true, data: rows || [] });
@@ -149,7 +149,7 @@ exports.stats = (req, res) => {
         [],
         (err, row) => {
             if (err) {
-                logger.error("stats failed", err);
+                logger.error("stats", err);
                 return res.status(500).json({ success: false, error: "Database error" });
             }
             res.json({
@@ -173,7 +173,7 @@ exports.dailyStats = (req, res) => {
         [today],
         (err, row) => {
             if (err) {
-                logger.error("dailyStats failed", err);
+                logger.error("dailyStats", err);
                 return res.status(500).json({ success: false, error: "Database error" });
             }
             res.json({
@@ -191,7 +191,7 @@ exports.dailyStats = (req, res) => {
 exports.exportCSV = (req, res) => {
     db.all("SELECT * FROM trips ORDER BY id DESC", [], (err, rows) => {
         if (err) {
-            logger.error("exportCSV failed", err);
+            logger.error("exportCSV", err);
             return res.status(500).json({ success: false, error: "Database error" });
         }
 
