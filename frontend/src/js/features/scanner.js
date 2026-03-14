@@ -5,11 +5,9 @@ function scanPassport() {
         return;
     }
 
-    // Simulate scanning
     const scannedValue = generateFakePassport();
     input.value = scannedValue;
 
-    // Visual feedback
     input.style.borderColor = "#059669";
     input.style.boxShadow = "0 0 0 4px rgba(5, 150, 105, 0.2)";
 
@@ -28,7 +26,6 @@ function generateFakePassport() {
     return `${prefix}${numbers}`;
 }
 
-// Bind on load
 window.addEventListener("DOMContentLoaded", () => {
     const scanBtn = document.getElementById("scanBtn");
     if (scanBtn) {

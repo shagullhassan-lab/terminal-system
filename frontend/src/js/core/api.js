@@ -1,7 +1,5 @@
-// ============ CONFIGURATION ============
-const REQUEST_TIMEOUT = 5000; // 5 seconds
+const REQUEST_TIMEOUT = 5000;
 
-// ============ FETCH WITH TIMEOUT ============
 async function fetchWithTimeout(url, options = {}, timeout = REQUEST_TIMEOUT) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -25,7 +23,6 @@ async function fetchWithTimeout(url, options = {}, timeout = REQUEST_TIMEOUT) {
     }
 }
 
-// ============ GET ALL TRIPS ============
 async function getTrips(limit = 100, offset = 0) {
     try {
         const res = await fetchWithTimeout(`${API_URL}/trips?limit=${limit}&offset=${offset}`);
@@ -36,7 +33,6 @@ async function getTrips(limit = 100, offset = 0) {
     }
 }
 
-// ============ GET TRIP BY ID ============
 async function getTripById(id) {
     try {
         const res = await fetchWithTimeout(`${API_URL}/trips/${id}`);
@@ -47,7 +43,6 @@ async function getTripById(id) {
     }
 }
 
-// ============ CREATE TRIP ============
 async function addTrip(trip) {
     try {
         const res = await fetchWithTimeout(`${API_URL}/trips`, {
@@ -62,7 +57,6 @@ async function addTrip(trip) {
     }
 }
 
-// ============ UPDATE TRIP ============
 async function updateTrip(id, data) {
     try {
         const res = await fetchWithTimeout(`${API_URL}/trips/${id}`, {
@@ -77,7 +71,6 @@ async function updateTrip(id, data) {
     }
 }
 
-// ============ DELETE TRIP ============
 async function deleteTrip(id) {
     try {
         const res = await fetchWithTimeout(`${API_URL}/trips/${id}`, {
@@ -90,7 +83,6 @@ async function deleteTrip(id) {
     }
 }
 
-// ============ SEARCH TRIPS ============
 async function searchTrips(query) {
     try {
         const res = await fetchWithTimeout(`${API_URL}/search?q=${encodeURIComponent(query)}`);
@@ -101,7 +93,6 @@ async function searchTrips(query) {
     }
 }
 
-// ============ GET STATISTICS ============
 async function getStats() {
     try {
         const res = await fetchWithTimeout(`${API_URL}/stats`);
@@ -122,7 +113,6 @@ async function getDailyStats() {
     }
 }
 
-// ============ EXPORT TO CSV ============
 async function exportToCSV() {
     try {
         const res = await fetchWithTimeout(`${API_URL}/export/csv`);

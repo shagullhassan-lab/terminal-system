@@ -1,12 +1,10 @@
 class Logger {
     log(level, message, data = null) {
         const timestamp = new Date().toISOString();
-        const logMsg = `[${timestamp}] [${level}] ${message}`;
-        
         if (data) {
-            console.log(logMsg, data);
+            console.log(`[${timestamp}] [${level}] ${message}`, data);
         } else {
-            console.log(logMsg);
+            console.log(`[${timestamp}] [${level}] ${message}`);
         }
     }
 

@@ -1,18 +1,16 @@
 const OFFLINE_STORAGE_KEY = "offlineTrips";
 let offlineTrips = [];
 
-// Initialize offline trips
 function initOfflineSync() {
     try {
         offlineTrips = JSON.parse(localStorage.getItem(OFFLINE_STORAGE_KEY) || "[]");
-        logger.info(`✅ Loaded ${offlineTrips.length} offline trips`);
+        logger.info(`Loaded ${offlineTrips.length} offline trips`);
     } catch (err) {
         logger.error("initOfflineSync", err);
         offlineTrips = [];
     }
 }
 
-// Save trip offline
 function saveTripOffline(trip) {
     try {
         const tripWithId = {
@@ -23,7 +21,7 @@ function saveTripOffline(trip) {
         };
         offlineTrips.push(tripWithId);
         localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(offlineTrips));
-        logger.info(`✅ Trip saved offline. Total: ${offlineTrips.length}`);
+        logger.info(`Trip saved offline. Total: ${offlineTrips.length}`);
         return tripWithId;
     } catch (err) {
         logger.error("saveTripOffline", err);
@@ -31,32 +29,28 @@ function saveTripOffline(trip) {
     }
 }
 
-// Get offline trips
 function getOfflineTrips() {
     return offlineTrips;
 }
 
-// Remove offline trip
 function removeOfflineTrip(offlineId) {
     try {
         offlineTrips = offlineTrips.filter(t => t.offlineId !== offlineId);
         localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(offlineTrips));
-        logger.info(`✅ Offline trip removed. Remaining: ${offlineTrips.length}`);
+        logger.info(`Offline trip removed. Remaining: ${offlineTrips.length}`);
     } catch (err) {
         logger.error("removeOfflineTrip", err);
     }
 }
 
-// Sync offline trips
 async function syncOfflineTrips() {
     if (offlineTrips.length === 0) {
         logger.info("No offline trips to sync");
         return;
     }
 
-    logger.info(`🔄 Syncing ${offlineTrips.length} offline trips...`);
+    logger.info(`Syncing ${offlineTrips.length} offline trips...`);
 
-    // Create deep copy
     const tripsToSync = JSON.parse(JSON.stringify(offlineTrips));
     let synced = 0;
     let failed = 0;
@@ -77,7 +71,7 @@ async function syncOfflineTrips() {
             }
         } catch (err) {
             failed++;
-            logger.error("syncOfflineTrips", err);
+            logger.error("syncOfflineTrips error", err);
         }
     }
 
@@ -92,22 +86,13 @@ async function syncOfflineTrips() {
     updateTotals();
 }
 
-// Listen for online/offline
 window.addEventListener("online", () => {
-    logger.info("🌐 Back online!");
+    logger.info("Back online");
     showNotification("🌐 Back online - syncing...", "info");
     setTimeout(() => syncOfflineTrips(), 1000);
 });
 
 window.addEventListener("offline", () => {
-    logger.info("📴 Offline!");
+    logger.info("Offline");
     showNotification("📴 Offline - data saved locally", "warning");
-});
-
-// Initialize on load
-window.addEventListener("DOMContentLoaded", () => {
-    initOfflineSync();
-    if (navigator.onLine && offlineTrips.length > 0) {
-        setTimeout(() => syncOfflineTrips(), 2000);
-    }
 });

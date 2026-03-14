@@ -4,28 +4,32 @@ const itemsPerPage = 20;
 async function loadPage(page = 1) {
     const offset = (page - 1) * itemsPerPage;
     const result = await getTrips(itemsPerPage, offset);
-    
+
     if (result.success) {
         displayTripsTable(result.data);
         currentPage = page;
+        updatePaginationUI(page);
     }
 }
 
-function updatePagination(totalItems) {
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+function updatePaginationUI(page) {
     const paginationDiv = document.getElementById("pagination");
-    
-    if (!paginationDiv || totalPages <= 1) return;
-    
+    if (!paginationDiv) return;
+
     let html = '<div class="pagination">';
-    
-    if (currentPage > 1) {
-        html += `<button onclick="loadPage(${currentPage - 1})">← Previous</button>`;
+
+    if (page > 1) {
+        html += `<button onclick="loadPage(${page - 1})">← Previous</button>`;
     }
-    
-    for (let i = 1; i <= totalPages; i++) {
-        html += `<button ${i === currentPage ? 'class="active"' : ''} onclick="loadPage(${i})">${i}</button>`;
+
+    for (let i = Math.max(1, page - 2); i <= page + 2; i++) {
+        html += `<button ${i === page ? 'class="active"' : ''} onclick="loadPage(${i})">${i}</button>`;
     }
-    
-    if (currentPage < totalPages) {
-        html += `<button onclick="loadPage(${currentPage + 1})
+
+    if (page < 100) {
+        html += `<button onclick="loadPage(${page + 1})">Next →</button>`;
+    }
+
+    html += '</div>';
+    paginationDiv.innerHTML = html;
+}

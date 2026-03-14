@@ -5,35 +5,34 @@ const db_name = path.join(__dirname, "terminal.db");
 
 const db = new sqlite3.Database(db_name, (err) => {
     if (err) {
-        console.error("❌ Database connection error:", err.message);
+        console.error("❌ Database error:", err.message);
         process.exit(1);
     } else {
         console.log("✅ Database connected!");
     }
 });
 
+// Enable foreign keys
 db.run("PRAGMA foreign_keys = ON");
 
-// ============ CREATE TABLES ============
-const createTripsTable = `
-    CREATE TABLE IF NOT EXISTS trips (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        passenger TEXT NOT NULL,
-        passport TEXT NOT NULL,
-        driver TEXT NOT NULL,
-        destination TEXT NOT NULL,
-        type TEXT DEFAULT 'Local',
-        fare REAL NOT NULL,
-        status TEXT DEFAULT 'completed',
-        date TEXT DEFAULT CURRENT_TIMESTAMP,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-`;
+// ============ CREATE TRIPS TABLE ============
+const sql_create = `CREATE TABLE IF NOT EXISTS trips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    passenger TEXT NOT NULL,
+    passport TEXT NOT NULL,
+    driver TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    type TEXT DEFAULT 'Local',
+    fare REAL NOT NULL,
+    status TEXT DEFAULT 'completed',
+    date TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);`;
 
-db.run(createTripsTable, (err) => {
+db.run(sql_create, (err) => {
     if (err) {
-        console.error("❌ Table creation error:", err.message);
+        console.error("❌ Table error:", err.message);
     } else {
         console.log("✅ Trips table ready!");
         createIndexes();
@@ -51,7 +50,11 @@ function createIndexes() {
 
     indexes.forEach((index, idx) => {
         db.run(index, (err) => {
-            if (err) console.error(`❌ Index ${idx}:`, err.message);
+            if (err) {
+                console.error(`❌ Index ${idx} error:`, err.message);
+            } else {
+                console.log(`✅ Index ${idx} created`);
+            }
         });
     });
 }

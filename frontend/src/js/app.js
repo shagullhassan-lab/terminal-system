@@ -1,71 +1,46 @@
-// ============ MAIN APP ORCHESTRATION ============
-// All utility functions are imported from their respective modules
-// This file handles page initialization and event binding
-
-console.log("✅ App initialized");
-
 // ============ PAGE INITIALIZATION ============
 window.addEventListener("DOMContentLoaded", () => {
-    console.log("🚀 Page loaded, initializing app...");
-    
-    // Initialize offline sync
+    logger.info("App initializing...");
+
     initOfflineSync();
-    
-    // Load initial data
     loadTrips();
     updateTotals();
-    
-    // Bind event listeners
     bindEventListeners();
-    
-    // Auto-refresh trips every 2 minutes
+
     setInterval(() => {
         loadTrips();
         updateTotals();
     }, 120000);
+
+    logger.info("App ready!");
 });
 
 // ============ EVENT BINDING ============
 function bindEventListeners() {
-    // Search with debounce
     const searchInput = document.getElementById("searchInput");
     if (searchInput) {
-        searchInput.addEventListener("keyup", debounce(filterTrips, 500));
-    }
-
-    // Save trip on form submit
-    const tripForm = document.getElementById("tripForm");
-    if (tripForm) {
-        tripForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            saveTrip();
-        });
-    }
-
-    // Scan button
-    const scanBtn = document.getElementById("scanBtn");
-    if (scanBtn) {
-        scanBtn.addEventListener("click", scanPassport);
+        const debouncedSearch = debounce(filterTrips, 500);
+        searchInput.addEventListener("keyup", debouncedSearch);
     }
 }
 
 // ============ LOAD TRIPS ============
 async function loadTrips() {
     try {
-        const result = await getTrips(100, 0);
+        const result = await getTrips(20, 0);
         if (!result.success) {
-            console.error("Failed to load trips");
+            logger.error("Failed to load trips");
             return;
         }
 
         displayTripsTable(result.data);
     } catch (err) {
-        console.error("Error loading trips:", err);
+        logger.error("loadTrips", err);
         showNotification("❌ Failed to load trips", "error");
     }
 }
 
-// ============ DISPLAY TRIPS IN TABLE ============
+// ============ DISPLAY TRIPS ============
 function displayTripsTable(trips) {
     const tbody = document.getElementById("tripsBody");
     const noTripsMsg = document.getElementById("noTrips");
@@ -75,13 +50,12 @@ function displayTripsTable(trips) {
     tbody.innerHTML = "";
 
     if (!trips || trips.length === 0) {
-        noTripsMsg.style.display = "block";
+        if (noTripsMsg) noTripsMsg.style.display = "block";
         return;
     }
 
-    noTripsMsg.style.display = "none";
+    if (noTripsMsg) noTripsMsg.style.display = "none";
 
-    // Use DocumentFragment for efficient DOM insertion
     const fragment = document.createDocumentFragment();
 
     trips.forEach(trip => {
@@ -92,12 +66,12 @@ function displayTripsTable(trips) {
             <td data-label="Passport">${escapeHtml(trip.passport)}</td>
             <td data-label="Driver">${escapeHtml(trip.driver)}</td>
             <td data-label="Destination">${escapeHtml(trip.destination)}</td>
-            <td data-label="Type"><span class="badge badge-${trip.type.toLowerCase().replace(/ /g, '-')}">${escapeHtml(trip.type)}</span></td>
+            <td data-label="Type"><span class="badge">${escapeHtml(trip.type)}</span></td>
             <td data-label="Fare">${formatCurrency(trip.fare)}</td>
             <td data-label="Date">${formatDateTime(trip.date)}</td>
             <td data-label="Actions">
-                <button class="btn-danger" onclick="deleteTripHandler(${trip.id})" title="Delete trip">🗑️</button>
-                <button class="btn-info" onclick="printTicket(${trip.id})" title="Print receipt">🖨️</button>
+                <button class="btn-danger" onclick="deleteTripHandler(${trip.id})">🗑️</button>
+                <button class="btn-info" onclick="printTicket(${trip.id})">🖨️</button>
             </td>
         `;
         fragment.appendChild(tr);
@@ -113,16 +87,14 @@ async function saveTrip() {
 
     try {
         if (!navigator.onLine) {
-            // Save offline
-            const offlineTrip = saveTripOffline(validatedData);
+            saveTripOffline(validatedData);
             showNotification("📴 Saved offline. Will sync when online.", "warning");
             clearForm();
             return;
         }
 
-        // Save to server
         const result = await addTrip(validatedData);
-        
+
         if (result.success) {
             showNotification(`✅ Trip saved! ID: ${result.data.id}`, "success");
             clearForm();
@@ -132,18 +104,18 @@ async function saveTrip() {
             showNotification(`❌ ${result.error}`, "error");
         }
     } catch (err) {
-        console.error("Error saving trip:", err);
+        logger.error("saveTrip", err);
         showNotification("❌ Failed to save trip", "error");
     }
 }
 
 // ============ DELETE TRIP ============
 async function deleteTripHandler(id) {
-    if (!confirm("Are you sure you want to delete this trip?")) return;
+    if (!confirm("Delete this trip?")) return;
 
     try {
         const result = await deleteTrip(id);
-        
+
         if (result.success) {
             showNotification("✅ Trip deleted", "success");
             loadTrips();
@@ -152,12 +124,12 @@ async function deleteTripHandler(id) {
             showNotification(`❌ ${result.error}`, "error");
         }
     } catch (err) {
-        console.error("Error deleting trip:", err);
+        logger.error("deleteTripHandler", err);
         showNotification("❌ Failed to delete trip", "error");
     }
 }
 
-// ============ FILTER/SEARCH TRIPS ============
+// ============ FILTER/SEARCH ============
 async function filterTrips() {
     const q = document.getElementById("searchInput")?.value?.trim() || "";
 
@@ -168,14 +140,14 @@ async function filterTrips() {
 
     try {
         const result = await searchTrips(q);
-        
+
         if (result.success) {
             displayTripsTable(result.data);
         } else {
             showNotification("❌ Search failed", "error");
         }
     } catch (err) {
-        console.error("Error searching trips:", err);
+        logger.error("filterTrips", err);
         showNotification("❌ Search error", "error");
     }
 }
@@ -184,11 +156,11 @@ async function filterTrips() {
 async function updateTotals() {
     try {
         const result = await getStats();
-        
+
         if (result.success) {
             const { trips, earnings } = result.data;
             const totalCountBox = document.getElementById("totalCount");
-            
+
             if (totalCountBox) {
                 totalCountBox.innerHTML = `
                     <h3>Today's Earnings: <strong>${formatCurrency(earnings)}</strong></h3>
@@ -197,11 +169,11 @@ async function updateTotals() {
             }
         }
     } catch (err) {
-        console.error("Error updating totals:", err);
+        logger.error("updateTotals", err);
     }
 }
 
-// ============ VALIDATE TRIP FORM ============
+// ============ VALIDATE FORM ============
 function validateTripForm() {
     const passenger = document.getElementById("passenger")?.value?.trim() || "";
     const passport = document.getElementById("passport")?.value?.trim() || "";
@@ -212,49 +184,17 @@ function validateTripForm() {
 
     const errors = [];
 
-    // Validate passenger
-    if (!passenger || passenger.length < 2) {
-        errors.push("❌ Passenger name must be at least 2 characters");
-    }
-    if (passenger.length > 50) {
-        errors.push("❌ Passenger name too long (max 50)");
-    }
-    if (!/^[a-zA-Z\s\-']+$/.test(passenger)) {
-        errors.push("❌ Passenger name contains invalid characters");
-    }
+    if (!passenger || passenger.length < 2) errors.push("❌ Passenger name (min 2 chars)");
+    if (passenger.length > 50) errors.push("❌ Passenger name too long");
 
-    // Validate passport
-    if (!passport || passport.length < 3) {
-        errors.push("❌ Valid passport required");
-    }
-    if (passport.length > 20) {
-        errors.push("❌ Passport too long (max 20)");
-    }
+    if (!passport || passport.length < 3) errors.push("❌ Valid passport required");
 
-    // Validate driver
-    if (!driver || driver.length < 2) {
-        errors.push("❌ Driver name must be at least 2 characters");
-    }
-    if (!/^[a-zA-Z\s\-']+$/.test(driver)) {
-        errors.push("❌ Driver name contains invalid characters");
-    }
+    if (!driver || driver.length < 2) errors.push("❌ Driver name (min 2 chars)");
 
-    // Validate destination
-    if (!destination || destination.length < 2) {
-        errors.push("❌ Destination required (min 2 chars)");
-    }
-    if (destination.length > 100) {
-        errors.push("❌ Destination too long (max 100)");
-    }
+    if (!destination || destination.length < 2) errors.push("❌ Destination (min 2 chars)");
 
-    // Validate fare
     const fareNum = parseFloat(fare);
-    if (!fare || isNaN(fareNum) || fareNum <= 0) {
-        errors.push("❌ Valid fare required (> 0)");
-    }
-    if (fareNum > 999999) {
-        errors.push("❌ Fare too high");
-    }
+    if (!fare || isNaN(fareNum) || fareNum <= 0) errors.push("❌ Valid fare required");
 
     if (errors.length > 0) {
         errors.forEach(err => showNotification(err, "error"));
@@ -267,7 +207,7 @@ function validateTripForm() {
         driver,
         destination,
         type,
-        fare: parseFloat(fare)
+        fare: fareNum
     };
 }
 
@@ -279,4 +219,5 @@ function clearForm() {
     document.getElementById("destination").value = "";
     document.getElementById("type").value = "Local";
     document.getElementById("fare").value = "";
+    document.getElementById("passenger").focus();
 }
