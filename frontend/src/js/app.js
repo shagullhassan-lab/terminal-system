@@ -1,223 +1,146 @@
-// ============ PAGE INITIALIZATION ============
-window.addEventListener("DOMContentLoaded", () => {
-    logger.info("App initializing...");
+$apiContent = @'
+const REQUEST_TIMEOUT = 5000;
 
-    initOfflineSync();
-    loadTrips();
-    updateTotals();
-    bindEventListeners();
-
-    setInterval(() => {
-        loadTrips();
-        updateTotals();
-    }, 120000);
-
-    logger.info("App ready!");
-});
-
-// ============ EVENT BINDING ============
-function bindEventListeners() {
-    const searchInput = document.getElementById("searchInput");
-    if (searchInput) {
-        const debouncedSearch = debounce(filterTrips, 500);
-        searchInput.addEventListener("keyup", debouncedSearch);
-    }
-}
-
-// ============ LOAD TRIPS ============
-async function loadTrips() {
-    try {
-        const result = await getTrips(20, 0);
-        if (!result.success) {
-            logger.error("Failed to load trips");
-            return;
-        }
-
-        displayTripsTable(result.data);
-    } catch (err) {
-        logger.error("loadTrips", err);
-        showNotification("❌ Failed to load trips", "error");
-    }
-}
-
-// ============ DISPLAY TRIPS ============
-function displayTripsTable(trips) {
-    const tbody = document.getElementById("tripsBody");
-    const noTripsMsg = document.getElementById("noTrips");
-
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    if (!trips || trips.length === 0) {
-        if (noTripsMsg) noTripsMsg.style.display = "block";
-        return;
-    }
-
-    if (noTripsMsg) noTripsMsg.style.display = "none";
-
-    const fragment = document.createDocumentFragment();
-
-    trips.forEach(trip => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td data-label="ID">${trip.id}</td>
-            <td data-label="Passenger">${escapeHtml(trip.passenger)}</td>
-            <td data-label="Passport">${escapeHtml(trip.passport)}</td>
-            <td data-label="Driver">${escapeHtml(trip.driver)}</td>
-            <td data-label="Destination">${escapeHtml(trip.destination)}</td>
-            <td data-label="Type"><span class="badge">${escapeHtml(trip.type)}</span></td>
-            <td data-label="Fare">${formatCurrency(trip.fare)}</td>
-            <td data-label="Date">${formatDateTime(trip.date)}</td>
-            <td data-label="Actions">
-                <button class="btn-danger" onclick="deleteTripHandler(${trip.id})">🗑️</button>
-                <button class="btn-info" onclick="printTicket(${trip.id})">🖨️</button>
-            </td>
-        `;
-        fragment.appendChild(tr);
-    });
-
-    tbody.appendChild(fragment);
-}
-
-// ============ SAVE TRIP ============
-async function saveTrip() {
-    const validatedData = validateTripForm();
-    if (!validatedData) return;
+async function fetchWithTimeout(url, options = {}, timeout = REQUEST_TIMEOUT) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-        if (!navigator.onLine) {
-            saveTripOffline(validatedData);
-            showNotification("📴 Saved offline. Will sync when online.", "warning");
-            clearForm();
-            return;
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(error.error || error.errors?.[0] || response.statusText);
         }
 
-        const result = await addTrip(validatedData);
-
-        if (result.success) {
-            showNotification(`✅ Trip saved! ID: ${result.data.id}`, "success");
-            clearForm();
-            loadTrips();
-            updateTotals();
-        } else {
-            showNotification(`❌ ${result.error}`, "error");
-        }
+        return response;
     } catch (err) {
-        logger.error("saveTrip", err);
-        showNotification("❌ Failed to save trip", "error");
+        clearTimeout(timeoutId);
+        if (err.name === "AbortError") throw new Error("Request timeout");
+        throw err;
     }
 }
 
-// ============ DELETE TRIP ============
-async function deleteTripHandler(id) {
-    if (!confirm("Delete this trip?")) return;
-
+// GET ALL TRIPS
+async function getTrips(limit = 100, offset = 0) {
     try {
-        const result = await deleteTrip(id);
-
-        if (result.success) {
-            showNotification("✅ Trip deleted", "success");
-            loadTrips();
-            updateTotals();
-        } else {
-            showNotification(`❌ ${result.error}`, "error");
-        }
+        const res = await fetchWithTimeout(`${API_URL}/trips?limit=${limit}&offset=${offset}`);
+        return await res.json();
     } catch (err) {
-        logger.error("deleteTripHandler", err);
-        showNotification("❌ Failed to delete trip", "error");
+        logger.error("getTrips", err);
+        return { success: false, data: [] };
     }
 }
 
-// ============ FILTER/SEARCH ============
-async function filterTrips() {
-    const q = document.getElementById("searchInput")?.value?.trim() || "";
-
-    if (!q) {
-        loadTrips();
-        return;
-    }
-
+// GET TRIP BY ID
+async function getTripById(id) {
     try {
-        const result = await searchTrips(q);
-
-        if (result.success) {
-            displayTripsTable(result.data);
-        } else {
-            showNotification("❌ Search failed", "error");
-        }
+        const res = await fetchWithTimeout(`${API_URL}/trips/${id}`);
+        return await res.json();
     } catch (err) {
-        logger.error("filterTrips", err);
-        showNotification("❌ Search error", "error");
+        logger.error("getTripById", err);
+        return { success: false, data: null };
     }
 }
 
-// ============ UPDATE TOTALS ============
-async function updateTotals() {
+// CREATE TRIP
+async function addTrip(trip) {
     try {
-        const result = await getStats();
-
-        if (result.success) {
-            const { trips, earnings } = result.data;
-            const totalCountBox = document.getElementById("totalCount");
-
-            if (totalCountBox) {
-                totalCountBox.innerHTML = `
-                    <h3>Today's Earnings: <strong>${formatCurrency(earnings)}</strong></h3>
-                    <p>${trips} trips completed</p>
-                `;
-            }
-        }
+        const res = await fetchWithTimeout(`${API_URL}/trips`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(trip)
+        });
+        return await res.json();
     } catch (err) {
-        logger.error("updateTotals", err);
+        logger.error("addTrip", err);
+        return { success: false, error: err.message };
     }
 }
 
-// ============ VALIDATE FORM ============
-function validateTripForm() {
-    const passenger = document.getElementById("passenger")?.value?.trim() || "";
-    const passport = document.getElementById("passport")?.value?.trim() || "";
-    const driver = document.getElementById("driver")?.value?.trim() || "";
-    const destination = document.getElementById("destination")?.value?.trim() || "";
-    const type = document.getElementById("type")?.value || "Local";
-    const fare = document.getElementById("fare")?.value?.trim() || "";
-
-    const errors = [];
-
-    if (!passenger || passenger.length < 2) errors.push("❌ Passenger name (min 2 chars)");
-    if (passenger.length > 50) errors.push("❌ Passenger name too long");
-
-    if (!passport || passport.length < 3) errors.push("❌ Valid passport required");
-
-    if (!driver || driver.length < 2) errors.push("❌ Driver name (min 2 chars)");
-
-    if (!destination || destination.length < 2) errors.push("❌ Destination (min 2 chars)");
-
-    const fareNum = parseFloat(fare);
-    if (!fare || isNaN(fareNum) || fareNum <= 0) errors.push("❌ Valid fare required");
-
-    if (errors.length > 0) {
-        errors.forEach(err => showNotification(err, "error"));
-        return null;
+// UPDATE TRIP
+async function updateTrip(id, data) {
+    try {
+        const res = await fetchWithTimeout(`${API_URL}/trips/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+        return await res.json();
+    } catch (err) {
+        logger.error("updateTrip", err);
+        return { success: false, error: err.message };
     }
-
-    return {
-        passenger,
-        passport,
-        driver,
-        destination,
-        type,
-        fare: fareNum
-    };
 }
 
-// ============ CLEAR FORM ============
-function clearForm() {
-    document.getElementById("passenger").value = "";
-    document.getElementById("passport").value = "";
-    document.getElementById("driver").value = "";
-    document.getElementById("destination").value = "";
-    document.getElementById("type").value = "Local";
-    document.getElementById("fare").value = "";
-    document.getElementById("passenger").focus();
+// DELETE TRIP
+async function deleteTrip(id) {
+    try {
+        const res = await fetchWithTimeout(`${API_URL}/trips/${id}`, {
+            method: "DELETE"
+        });
+        return await res.json();
+    } catch (err) {
+        logger.error("deleteTrip", err);
+        return { success: false, error: err.message };
+    }
 }
+
+// SEARCH TRIPS
+async function searchTrips(query) {
+    try {
+        const res = await fetchWithTimeout(`${API_URL}/search?q=${encodeURIComponent(query)}`);
+        return await res.json();
+    } catch (err) {
+        logger.error("searchTrips", err);
+        return { success: false, data: [] };
+    }
+}
+
+// GET STATISTICS
+async function getStats() {
+    try {
+        const res = await fetchWithTimeout(`${API_URL}/stats`);
+        return await res.json();
+    } catch (err) {
+        logger.error("getStats", err);
+        return { success: false, data: { trips: 0, earnings: 0, average: 0 } };
+    }
+}
+
+// GET DAILY STATISTICS
+async function getDailyStats() {
+    try {
+        const res = await fetchWithTimeout(`${API_URL}/stats/daily`);
+        return await res.json();
+    } catch (err) {
+        logger.error("getDailyStats", err);
+        return { success: false, data: { trips: 0, earnings: 0 } };
+    }
+}
+
+// EXPORT CSV
+async function exportToCSV() {
+    try {
+        const res = await fetchWithTimeout(`${API_URL}/export/csv`);
+        const blob = await res.blob();
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `trips-${new Date().toISOString().split("T")[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        showNotification("✅ Exported to CSV", "success");
+    } catch (err) {
+        logger.error("exportToCSV", err);
+        showNotification("❌ Export failed", "error");
+    }
+}
+'@
+
+$apiContent | Out-File -Encoding UTF8 -Force frontend/src/js/core/api.js

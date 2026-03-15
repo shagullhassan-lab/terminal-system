@@ -1,15 +1,16 @@
-﻿{
-  "name": "terminal-backend",
+{
+  "name": "backend",
   "version": "1.0.0",
-  "main": "src/app.js",
-  "type": "commonjs",
-  "scripts": { "start": "node src/app.js" },
+  "private": true,
+  "scripts": {
+    "start": "node src/app.js",
+    "test": "echo \"No tests yet\""
+  },
   "dependencies": {
-    "body-parser": "^2.2.2",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
+    "express": "^4.18.2",
     "sqlite3": "^5.1.7",
-    "dotenv": "^16.3.1",
-    "jsonwebtoken": "^9.0.0"
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.3.1"
   }
 }
